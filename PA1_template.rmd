@@ -1,0 +1,90 @@
+---
+title: "Peer Assessment 1 for Reproducible Research"
+author: "tldc01"
+date: "January 11, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr)
+library(ggplot2)
+```
+
+## Loading and preprocessing the data
+
+Here is the code to read in the data:
+
+```{r}
+mydata<-read.csv("activity.csv")
+#q1flag<-!is.na(mydata[,1])
+#q1<-mydata[q1flag,]
+#summary(mydata)
+dailysteps<-aggregate(mydata$steps,by=list(mydata$date),FUN=sum,na.rm=TRUE)
+```
+
+## What is mean total number of steps taken per day?
+
+Here is the histogram and some statistics on the total number of daily steps:
+
+```{r}
+hist(dailysteps$x)
+mean(dailysteps$x)
+median(dailysteps$x)
+```
+
+## What is the average daily activity pattern?
+
+Now create the time series by interval:
+
+```{r}
+intervalsum<-aggregate(mydata$steps, by=list(mydata$interval), FUN=mean, na.rm=TRUE)
+plot(intervalsum$Group.1,intervalsum$x, type="l")
+i<-match(max(intervalsum$x),intervalsum$x)
+intervalsum[i,]
+```
+
+So the maximum average number of steps is 206.17 which occurs during interval # 835
+
+## Imputing missing values
+
+```{r}
+naflag<-is.na(mydata[,1])
+sum(naflag)
+```
+
+So there are 2304 records (observations) with missing data.
+
+```{r}
+mydata2<-mydata
+j<-dim(mydata2)[1]
+for (i in 1:j){
+    if(is.na(mydata2[i,1])){
+        thisrow=match(mydata2[i,3],intervalsum$Group.1)
+        mydata2[i,1]=intervalsum[thisrow,2]
+        }
+    }
+```
+
+Now mydata2 is like the original dataset with NA values replaced with the interval averages.
+
+Here is the new histogram:
+
+```{r}
+dailysteps2<-aggregate(mydata2$steps,by=list(mydata2$date),FUN=sum)
+hist(dailysteps2$x)
+mean(dailysteps2$x)
+median(dailysteps2$x)
+```
+We observe that both the mean and median increase in value since we replaced missing data with the interval averages.  We can also see that in this case the mean is also now equal to the median of 10766.19.
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+dayofwk<-weekdays(as.Date(mydata2$date))
+daytype<-revalue(dayofwk, c(Sunday="weekend", Monday="weekday", Tuesday="weekday", Wednesday="weekday", Thursday="weekday", Friday="weekday", Saturday="weekend"))
+mydata3<-cbind(mydata2, dayofwk, daytype)
+intervalsum3<-aggregate(mydata3$steps, by=list(mydata3$interval, mydata3$daytype), FUN=mean)
+mygraph<-ggplot(intervalsum3, aes(Group.1, x))+geom_line(color="blue")+facet_grid(Group.2~.)+ylab("Average Number of Steps")+xlab("Interval")
+print(mygraph)
+```
